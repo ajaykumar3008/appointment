@@ -1,0 +1,12 @@
+appointment\DoctorMapper.class
+appointment\SlotCalendar.class
+appointment\SlotMapper.class
+appointment\SpecializationMapper.class
+appointment\DoctorsLogic.class
+appointment\LogicLayer.class
+appointment\Doctor.class
+appointment\AppointmentConfig.class
+appointment\AppointmentDAO.class
+appointment\Specialization.class
+appointment\ImpAppointmentDAO.class
+appointment\AppointmentController.class
