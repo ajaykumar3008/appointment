@@ -1,0 +1,305 @@
+@GetMapping(value = "/getrequired")
+	public String getRequiredUploads(@RequestParam("claimid") int id, Model model) {
+
+		model.addAttribute("reupload", insuranceService.getAllReUploads(id));
+		model.addAttribute("claimid", id);
+		return "update";
+	}
+
+	@PostMapping(value = "/adduploads")
+	public String addUploads(@RequestParam("claimid") String id, MultipartHttpServletRequest request,Model model) {
+
+		int claimId = Integer.parseInt(id);
+		int index = 1;
+
+		List<ReUpload> list = insuranceService.getAllReUploads(claimId);
+		List<Uploads> list2 = insuranceService.getAllUploads(claimId);
+		
+		if(list2.size()>0) {
+		
+			index=list2.get(list2.size()).getReUploadId();
+		}
+		for (ReUpload upload : list) {
+			if (upload.getClaimId() == claimId) {
+				String name = upload.getName();
+				System.out.println(claimId);
+				MultipartFile file = request.getFile(name);
+				if (file != null && !file.isEmpty()) {
+					System.out.println(name);
+					if (upload.getType().equals("file")) {
+						System.out.println("file");
+
+						String uploadDir = "src/main/resources/static/file";
+						try {
+							Files.createDirectories(Paths.get(uploadDir));
+
+							String fileName = StringUtils.cleanPath(file.getOriginalFilename());
+							Path targetLocation = Paths.get(uploadDir).resolve(fileName);
+							Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+							String fullPath = targetLocation.toAbsolutePath().toString();
+
+							Uploads up = new Uploads();
+							up.setUploadId(index);
+							up.setReUploadId(upload.getUploadId());
+							up.setClaimId(claimId);
+							up.setData(fullPath);
+							up.setType("file");
+
+							insuranceService.addUploads(up);
+
+						} catch (IOException ex) {
+							ex.printStackTrace();
+						}
+					} else {
+
+						Uploads up = new Uploads();
+
+						up.setUploadId(index);
+						up.setReUploadId(upload.getUploadId());
+						up.setClaimId(claimId);
+						up.setData(file.getOriginalFilename());
+						up.setType("text");
+
+						insuranceService.addUploads(up);
+					}
+				}
+			}
+		}
+
+		model.addAttribute("claimid", claimId);
+		return "update";
+	}
+
+ ---------------------------------------------------------------------------------------
+
+ @Override
+	public void addRequiredUploads(ReUpload upload) {
+		String query = "insert into reuploads(claimId,name,type,Status,description) values(?,?,?,?,?)";
+		Object[] values = { upload.getClaimId(), upload.getName(), upload.getType(), upload.getStatus(),
+				upload.getDescription() };
+		jdbcTemplate.update(query, values);
+	}
+
+	@Override
+	public List<ReUpload> getAllReUploads(int id) {
+
+		return jdbcTemplate.query("select * from reuploads where claimId="+id, new ReUploadRowMapper());
+	}
+
+	@Override
+	public void addUploads(Uploads up) {
+
+		System.out.println("jdbc");
+		String query = "insert into uploads(uploadId,reuploadId,claimId,data,type) values(?,?,?,?)";
+		Object[] values = { up.getUploadId(), up.getReUploadId(), up.getClaimId(), up.getData(), up.getType() };
+		jdbcTemplate.update(query, values);
+	}
+
+	@Override
+	public List<Uploads> getAllUploads(int claimId) {
+		
+		return jdbcTemplate.query("select * from uploads where claimId="+claimId, new UploadsRowMapper());
+	}
+
+ --------------------------------------------------------------------------------
+
+ <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Required uploads</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+    <link rel="stylesheet" href="/path/to/your/custom.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <form th:object="${reupload}" action="/adduploads" enctype="multipart/form-data" method="post" class="needs-validation" novalidate>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div th:each="field : ${reupload}" class="form-group">
+                        <label th:text="${field.name}"></label>
+                        <input th:name="${field.name}" th:type="${field.type}" class="form-control" />
+                        <p th:text="${field.description}" class="text-muted"></p>
+                    </div>
+                </div>
+            </div>
+            <input type="hidden" name="claimid" th:value="${claimid}">
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </form>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
+
+-------------------------------------------------------------------
+package com.Insurance.Claims.Insurance.Models;
+
+public class Uploads {
+
+	int uploadId;
+	int reUploadId;
+	int claimId;
+	String data;
+	String type;
+
+	public int getReUploadId() {
+		return reUploadId;
+	}
+
+	public void setReUploadId(int reUploadId) {
+		this.reUploadId = reUploadId;
+	}
+
+	public int getUploadId() {
+		return uploadId;
+	}
+
+	public void setUploadId(int uploadId) {
+		this.uploadId = uploadId;
+	}
+
+	public int getClaimId() {
+		return claimId;
+	}
+
+	public void setClaimId(int claimId) {
+		this.claimId = claimId;
+	}
+
+	public String getData() {
+		return data;
+	}
+
+	public void setData(String data) {
+		this.data = data;
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+
+}
+------------------------------------------------------------
+
+package com.Insurance.Claims.Insurance.Models;
+
+public class ReUpload {
+
+	int uploadId;
+	int claimId;
+	String name;
+	String type;
+	String Status;
+	String description;
+
+	public int getUploadId() {
+		return uploadId;
+	}
+
+	public void setUploadId(int uploadId) {
+		this.uploadId = uploadId;
+	}
+
+	public int getClaimId() {
+		return claimId;
+	}
+
+	public void setClaimId(int claimId) {
+		this.claimId = claimId;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+
+	public String getStatus() {
+		return Status;
+	}
+
+	public void setStatus(String status) {
+		Status = status;
+	}
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String discription) {
+		this.description = discription;
+	}
+
+}
+-----------------------------------------------------
+
+package com.Insurance.Claims.Insurance.RowMappers;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.springframework.jdbc.core.RowMapper;
+
+import com.Insurance.Claims.Insurance.Models.ReUpload;
+
+public class ReUploadRowMapper implements RowMapper<ReUpload> {
+
+	@Override
+	public ReUpload mapRow(ResultSet rs, int rowNum) throws SQLException {
+		ReUpload reUpload = new ReUpload();
+
+		reUpload.setUploadId(rs.getInt("uploadId"));
+		reUpload.setClaimId(rs.getInt("claimId"));
+		reUpload.setName(rs.getString("name"));
+		reUpload.setType(rs.getString("type"));
+		reUpload.setStatus(rs.getString("Status"));
+		reUpload.setDescription(rs.getString("description"));
+
+		return reUpload;
+	}
+}
+
+-------------------------------------------------------------------------
+
+package com.Insurance.Claims.Insurance.RowMappers;
+
+import com.Insurance.Claims.Insurance.Models.Uploads;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.springframework.jdbc.core.RowMapper;
+
+public class UploadsRowMapper implements RowMapper<Uploads> {
+
+    @Override
+    public Uploads mapRow(ResultSet resultSet, int rowNum) throws SQLException {
+        Uploads uploads = new Uploads();
+        uploads.setUploadId(resultSet.getInt("uploadId"));
+        uploads.setReUploadId(resultSet.getInt("reUploadId"));
+        uploads.setClaimId(resultSet.getInt("claimId"));
+        uploads.setData(resultSet.getString("data"));
+        uploads.setType(resultSet.getString("type"));
+        return uploads;
+    }
+}
+
+----------------------------------------------------------------------------------------------------
